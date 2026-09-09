@@ -1,4 +1,10 @@
-# v2.8.0 — VOIP Lab (Provider-Neutral Foundation)
+# v2.8.1 — VOIP Lab Fresh Install Schema Bootstrap Fix
+
+- Fixed fresh-install ordering so the SQLAlchemy initial schema is explicitly created before migrations run.
+- Prevents migration 0001 from failing with `relation "leads" does not exist`.
+- No database migration changes; this is an installation/bootstrap fix only.
+
+# v2.8.1 — VOIP Lab (Provider-Neutral Foundation)
 
 - Separate test build for VOIP work; does not modify the production v2.7.x application.
 - Added Settings → VOIP configuration section.

@@ -149,6 +149,15 @@ systemctl enable leadcrm-voip-lab-backend
 # Migrations are then applied for upgrades/column/index changes and are idempotent.
 systemctl restart leadcrm-voip-lab-backend
 sleep 2
+# Explicitly bootstrap the SQLAlchemy schema before applying migrations.
+# Do not rely on the service startup event here: a fresh install can fail
+# before the tables exist, which would make migration 0001 fail on ALTER TABLE leads.
+"$INSTALL_DIR/backend/venv/bin/python3" - <<'PYEOF'
+from app.database import Base, engine
+import app.models  # register all ORM models
+Base.metadata.create_all(bind=engine)
+print("Initial SQLAlchemy schema created/verified.")
+PYEOF
 bash "$INSTALL_DIR/deploy/migrate.sh"
 systemctl restart leadcrm-voip-lab-backend
 
