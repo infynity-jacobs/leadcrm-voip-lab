@@ -1,0 +1,198 @@
+# Troubleshooting
+
+**Start here if the app doesn't seem to be working and you're not
+sure why:**
+
+```bash
+sudo bash deploy/diagnose.sh
+```
+
+It checks PostgreSQL, your `backend/.env` credentials, whether the
+app's schema exists, and the backend service's status in one pass,
+and prints a specific fix for whatever it finds broken. The sections
+below go into more detail on the scenarios it catches.
+
+## Backend crash-loops immediately on startup, even with correct DB credentials
+
+If `backend/.env` contains a key that isn't declared as a `Settings`
+field in `app/config.py` — most notably `FRONTEND_DIR`, which
+`install_ubuntu22.sh` always writes — older versions of this app
+crashed instantly with a `pydantic_core.ValidationError:
+extra_forbidden` the moment `app.config.settings` was imported,
+*before ever reaching the database*. This looked identical to a
+Postgres connection problem (no `users` table, `journalctl` showing
+the backend endlessly restarting) but had nothing to do with
+Postgres at all.
+
+This is fixed as of the version of `app/config.py` that sets
+`model_config = SettingsConfigDict(env_file=".env", extra="ignore")`.
+If you're still seeing crash-loops after confirming Postgres
+credentials are correct (`deploy/diagnose.sh` reports the DB
+connection as OK but the service still won't stay up), check:
+
+```bash
+sudo journalctl -u leadcrm-backend -n 30 --no-pager
+```
+
+A `pydantic_core._pydantic_core.ValidationError` there means you're
+running the old `config.py` — pull the latest code and restart.
+
+## `reset_admin_password.sh` fails with `relation "users" does not exist`
+
+This means the app has **never successfully created its database
+schema** — almost always because the Postgres role's actual password
+doesn't match what's in `backend/.env`, so the backend has been
+crash-looping on startup (SQLAlchemy can't connect, so
+`Base.metadata.create_all()` never runs).
+
+Run the diagnostic script — it checks Postgres, the `.env`
+credentials, whether the schema exists, and the backend service's
+status all in one pass, and prints the specific fix for whatever it
+finds broken:
+
+```bash
+sudo bash deploy/diagnose.sh
+```
+
+The most common fix it will suggest is resyncing the Postgres role's
+password to match what's already in `.env`:
+
+```bash
+sudo -u postgres psql -c "ALTER ROLE leadcrm WITH LOGIN PASSWORD '<password from .env>';"
+sudo systemctl restart leadcrm-backend
+```
+
+Then re-run `deploy/diagnose.sh` to confirm the schema gets created,
+and `deploy/reset_admin_password.sh` to get back into the app.
+
+## Can't log in with the auto-generated bootstrap password
+
+The bootstrap Super Admin account is only ever created **once** — the
+very first time the app starts against an empty `users` table. If
+`install_ubuntu22.sh` fails partway through and you re-run it, it
+generates and prints a *new* `BOOTSTRAP_ADMIN_PASSWORD` — but if an
+admin account already exists from an earlier attempt (even one that
+later failed for an unrelated reason), the app won't touch it. The
+password printed on screen and the password actually in the database
+end up being two different things.
+
+**Check whether this is what happened:**
+
+```bash
+sudo -u postgres psql -d leadcrm -c "SELECT id, username, role, is_active, created_at FROM users;"
+sudo journalctl -u leadcrm-backend --no-pager | grep -i "Bootstrapped initial Super Admin"
+```
+
+If a user already exists, or that log line only appears once and
+predates your latest install run, this is the cause.
+
+**Fix — reset the password directly:**
+
+```bash
+sudo bash deploy/reset_admin_password.sh
+```
+
+This updates the `admin` user's password in the database using the
+app's own bcrypt hashing (so it's guaranteed compatible with login),
+and prints a freshly generated password. To set a specific
+username/password instead of the defaults:
+
+```bash
+sudo bash deploy/reset_admin_password.sh admin 'MyNewPassword123!'
+```
+
+Works for any username, not just the bootstrap admin — handy for
+resetting any user's password from the CLI if they're locked out.
+
+## `install_ubuntu22.sh` fails with PostgreSQL connection/permission errors
+
+**Symptoms:**
+
+```
+could not change directory to "/home/youruser/leadcrm": Permission denied
+psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: No such file or directory
+```
+
+These are two different things:
+
+- The **"could not change directory"** line is cosmetic. It happens
+  because `sudo -u postgres psql ...` tries to preserve your current
+  working directory, and the `postgres` system user can't traverse
+  into your home directory (home dirs are locked to their owner by
+  default). `psql` falls back to `/` and keeps going — by itself this
+  line doesn't stop anything.
+- The **"No such file or directory"** line is the real problem:
+  PostgreSQL isn't actually running yet, so there's no socket to
+  connect to. Because the script uses `set -euo pipefail`, it aborts
+  the moment a `psql` command fails this way.
+
+As of the current version of `install_ubuntu22.sh`, both are fixed:
+the script `cd`s to `/tmp` before touching Postgres (so the chdir
+issue can't happen regardless of where you run it from), and it
+explicitly starts PostgreSQL and polls `pg_isready` for up to 30
+seconds before proceeding, failing with a clear message if it never
+comes up. If you're hitting this, pull the latest script and re-run
+it — it's safe to re-run (see below).
+
+**Manual diagnosis**, if the script still fails after that:
+
+```bash
+sudo systemctl status postgresql --no-pager
+sudo journalctl -u postgresql -n 50 --no-pager
+df -h /var/lib/postgresql       # rule out disk space
+dpkg -l | grep postgresql       # confirm the package actually installed
+```
+
+Common causes: the disk ran out of space during `initdb`, a prior
+broken install left a half-initialized data directory, or (rare on a
+plain Ubuntu 22.04 VM) something is blocking services from
+auto-starting.
+
+Once you've confirmed Postgres is installed and running
+(`sudo -u postgres pg_isready` should print `accepting connections`),
+just re-run the install script.
+
+## Is it safe to re-run `install_ubuntu22.sh`?
+
+Yes. It's designed to be idempotent:
+
+- If `backend/.env` already exists, it **reuses** the existing DB
+  password and secret key instead of generating new ones — and if
+  the Postgres role already exists, it runs `ALTER ROLE` to make sure
+  the role's actual password matches what's in `.env`, so the two
+  never drift out of sync.
+- It won't overwrite an existing `/etc/nginx/sites-available/leadcrm`
+  (so a `server_name`/TLS setup you've customized survives a re-run).
+- `useradd`, `CREATE ROLE`/`CREATE DATABASE`, and the systemd/Nginx
+  steps all check for existing state first.
+
+If it fails partway through, fix the underlying issue (see above) and
+just run it again.
+
+## Backend service won't start after install
+
+```bash
+sudo systemctl status leadcrm-backend --no-pager
+sudo journalctl -u leadcrm-backend -n 100 --no-pager
+```
+
+Common causes:
+- `backend/.env` has a `DATABASE_URL` that doesn't match the actual
+  Postgres role/password (see above — re-running the install script
+  now fixes this automatically).
+- A Python dependency failed to install into the venv — re-run
+  `/opt/leadcrm/backend/venv/bin/pip install -r /opt/leadcrm/backend/requirements.txt`
+  manually and read the actual error.
+
+## Nginx returns 502 Bad Gateway
+
+The backend isn't running or isn't listening on 127.0.0.1:8000.
+Check `sudo systemctl status leadcrm-backend` first, then
+`sudo nginx -t` to confirm the site config itself is valid.
+
+## XLSX import rejects every row
+
+Check that the "first_name" application field is actually mapped to
+a column in your file — it's the one required field. The import
+preview screen shows a few sample rows so you can confirm the
+mapping looks right before committing.
