@@ -144,21 +144,12 @@ echo "== 7/8: Initializing database schema, applying migrations, and starting se
 chown -R leadcrm-voip-lab:leadcrm-voip-lab "$INSTALL_DIR"
 cp "$SCRIPT_DIR/leadcrm-voip-lab-backend.service" /etc/systemd/system/leadcrm-voip-lab-backend.service
 systemctl daemon-reload
-systemctl enable leadcrm-voip-lab-backend
-# First start lets SQLAlchemy create the initial schema on a brand-new DB.
-# Migrations are then applied for upgrades/column/index changes and are idempotent.
-systemctl restart leadcrm-voip-lab-backend
-sleep 2
-# Explicitly bootstrap the SQLAlchemy schema before applying migrations.
-# Do not rely on the service startup event here: a fresh install can fail
-# before the tables exist, which would make migration 0001 fail on ALTER TABLE leads.
-"$INSTALL_DIR/backend/venv/bin/python3" - <<'PYEOF'
-from app.database import Base, engine
-import app.models  # register all ORM models
-Base.metadata.create_all(bind=engine)
-print("Initial SQLAlchemy schema created/verified.")
-PYEOF
+# Explicitly bootstrap the SQLAlchemy schema BEFORE the first service start.
+# Run as the application user so backend/.env remains private and readable.
+# The working directory must be the backend directory so `import app` works.
+sudo -u leadcrm-voip-lab -H bash -c "cd '$INSTALL_DIR/backend' && '$INSTALL_DIR/backend/venv/bin/python3' -c 'from app.database import Base, engine; import app.models; Base.metadata.create_all(bind=engine); print(\"Initial SQLAlchemy schema created/verified.\")'"
 bash "$INSTALL_DIR/deploy/migrate.sh"
+systemctl enable leadcrm-voip-lab-backend
 systemctl restart leadcrm-voip-lab-backend
 
 echo "== 8/8: Installing service and configuring Nginx =="

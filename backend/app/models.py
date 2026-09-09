@@ -231,6 +231,7 @@ class Product(Base):
 
 class LeadProduct(Base):
     __tablename__ = "lead_products"
+    __table_args__ = (UniqueConstraint("lead_id", "product_id", name="uq_lead_products_lead_product"),)
     id = Column(Integer, primary_key=True, index=True)
     lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)

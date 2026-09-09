@@ -1,16 +1,16 @@
-# v2.8.1 — VOIP Lab Fresh Install Schema Bootstrap Fix
+# Changelog
 
-- Fixed fresh-install ordering so the SQLAlchemy initial schema is explicitly created before migrations run.
-- Prevents migration 0001 from failing with `relation "leads" does not exist`.
-- No database migration changes; this is an installation/bootstrap fix only.
+## v2.8.2 - VoIP.ms adapter lab
+- Added provider-neutral VOIP adapter interface.
+- Added first provider adapter: VoIP.ms.
+- Added encrypted VoIP.ms SIP password and API password settings.
+- Added SIP username, authentication username, DID/caller-ID, POP/server, and API username settings.
+- Added an admin-only provider test endpoint using the VoIP.ms REST/JSON API.
+- Added provider registration-status check through VoIP.ms `getRegistrationStatus`.
+- Added DNS validation for the configured SIP POP.
+- Added the missing composite uniqueness constraint to `LeadProduct` for fresh installations.
+- Fixed installer schema bootstrap ordering, working directory, and application-user permissions.
+- Browser WebRTC calling is intentionally not enabled yet.
 
-# v2.8.1 — VOIP Lab (Provider-Neutral Foundation)
-
-- Separate test build for VOIP work; does not modify the production v2.7.x application.
-- Added Settings → VOIP configuration section.
-- Added provider-neutral system type choices: Generic SIP/WebRTC, Asterisk/FreePBX, SIP Trunk/VOIP Provider, PBX API/WebSocket, Other.
-- No Yeastar adapter or vendor-specific implementation is included.
-- Configuration-only foundation: no calls are placed or received in this build.
-- Reserved architecture for per-user extensions, encrypted SIP credentials, browser WebRTC/SIP, call events and Call Log integration in later phases.
-- Test installation uses isolated `/opt/leadcrm-voip-lab` paths and `leadcrm_voip_lab` database.
-- No database migration required.
+## v2.8.1
+- Provider-neutral VOIP lab foundation.

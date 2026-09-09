@@ -37,6 +37,8 @@ DEFAULTS = {
     "voip_enabled": "false", "voip_provider": "", "voip_server": "", "voip_port": "5060",
     "voip_transport": "wss", "voip_websocket_url": "", "voip_realm": "",
     "voip_stun_server": "", "voip_turn_server": "", "voip_extension_mode": "per_user",
+    "voip_sip_username": "", "voip_sip_password": "", "voip_auth_username": "",
+    "voip_did": "", "voip_callerid_name": "", "voip_api_username": "", "voip_api_password": "",
     "password_reset_expire_minutes": "30",
     "session_timeout_minutes": "480", "default_report_format": "pdf", "report_email_footer": "",
 }
@@ -72,10 +74,11 @@ def update_system_settings(payload: SystemSettingsUpdate, request: Request,
     for key, value in payload.values.items():
         if key not in allowed:
             continue
-        if key == "smtp_password" and str(value).strip() in ("", "********"):
+        if key in {"smtp_password", "voip_sip_password", "voip_api_password"} and str(value).strip() in ("", "********"):
+            continue
             continue
         row = db.query(SystemSetting).filter(SystemSetting.key == key).first()
-        secret = key in {"smtp_password", "voip_shared_secret", "voip_api_secret"}
+        secret = key in {"smtp_password", "voip_shared_secret", "voip_api_secret", "voip_sip_password", "voip_api_password"}
         stored = encrypt_secret(str(value)) if secret and value else str(value)
         if row:
             row.value = stored

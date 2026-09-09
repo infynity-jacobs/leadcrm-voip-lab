@@ -14,6 +14,7 @@ from app.utils.security import hash_password
 from app.routers import auth, users, teams, leads, import_xlsx, reports, audit
 from app.routers import settings as settings_router
 from app.routers import products
+from app.routers import voip
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("leadcrm")
@@ -38,6 +39,7 @@ app.include_router(reports.router)
 app.include_router(audit.router)
 app.include_router(settings_router.router)
 app.include_router(products.router)
+app.include_router(voip.router)
 
 
 @app.on_event("startup")

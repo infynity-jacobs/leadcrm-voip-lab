@@ -1601,6 +1601,7 @@ Views.settings = async function (root) {
             <option value="" ${!current.voip_provider?"selected":""}>Select later</option>
             <option value="generic_sip_webrtc" ${current.voip_provider==="generic_sip_webrtc"?"selected":""}>Generic SIP / WebRTC</option>
             <option value="asterisk_freepbx" ${current.voip_provider==="asterisk_freepbx"?"selected":""}>Asterisk / FreePBX</option>
+            <option value="voipms" ${current.voip_provider==="voipms"?"selected":""}>VoIP.ms</option>
             <option value="sip_provider" ${current.voip_provider==="sip_provider"?"selected":""}>SIP Trunk / VOIP Provider</option>
             <option value="pbx_api" ${current.voip_provider==="pbx_api"?"selected":""}>PBX with API / WebSocket</option>
             <option value="other" ${current.voip_provider==="other"?"selected":""}>Other</option>
@@ -1615,8 +1616,22 @@ Views.settings = async function (root) {
           <div class="col-md-6"><label class="form-label">TURN Server</label><input class="form-control" data-setting="voip_turn_server" value="${escapeHtml(current.voip_turn_server || "")}" placeholder="turn:turn.example.com:3478"></div>
         </div>
         <hr>
-        <h6>User extensions</h6><p class="text-muted small">User SIP credentials will be added separately and encrypted at rest. They will not be exposed in the normal user interface.</p>
-        <div class="alert alert-warning small mb-0"><strong>Testing scope:</strong> this build stores and validates VOIP configuration only. It does not place or receive calls until a provider adapter / browser SIP implementation is selected and implemented.</div>
+        <h6>VoIP.ms Adapter</h6>
+        <p class="text-muted small">VoIP.ms SIP and API credentials are stored encrypted. The adapter can validate API access and check the provider's registration status for the configured SIP account.</p>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">SIP Username / Sub-account</label><input class="form-control" data-setting="voip_sip_username" value="${escapeHtml(current.voip_sip_username || "")}" placeholder="123456_staff"></div>
+          <div class="col-md-6"><label class="form-label">SIP Password</label><input type="password" class="form-control" data-setting="voip_sip_password" placeholder="${current.voip_sip_password==="********"?"Saved — leave blank to keep it":"Enter SIP password"}"></div>
+          <div class="col-md-6"><label class="form-label">Authentication Username</label><input class="form-control" data-setting="voip_auth_username" value="${escapeHtml(current.voip_auth_username || "")}" placeholder="Usually same as SIP username"></div>
+          <div class="col-md-6"><label class="form-label">DID / Caller ID Number</label><input class="form-control" data-setting="voip_did" value="${escapeHtml(current.voip_did || "")}" placeholder="Your VoIP.ms DID"></div>
+          <div class="col-md-6"><label class="form-label">Caller ID Name</label><input class="form-control" data-setting="voip_callerid_name" value="${escapeHtml(current.voip_callerid_name || "")}" placeholder="COMPANY NAME"></div>
+          <div class="col-md-6"><label class="form-label">API Username (account email)</label><input type="email" class="form-control" data-setting="voip_api_username" value="${escapeHtml(current.voip_api_username || "")}" placeholder="name@example.com"></div>
+          <div class="col-md-6"><label class="form-label">API Password</label><input type="password" class="form-control" data-setting="voip_api_password" placeholder="${current.voip_api_password==="********"?"Saved — leave blank to keep it":"Dedicated VoIP.ms API password"}"></div>
+          <div class="col-md-6 d-flex align-items-end"><button type="button" class="btn btn-outline-primary" id="voip-test-btn">Test VoIP.ms Connection</button></div>
+        </div>
+        <div id="voip-test-result" class="mt-3"></div>
+        <hr>
+        <h6>User extensions</h6><p class="text-muted small">Per-user SIP credentials will be added in the next VOIP phase. They will be stored encrypted and mapped to CRM users.</p>
+        <div class="alert alert-warning small mb-0"><strong>Testing scope:</strong> v2.8.2 adds the provider adapter, secure credentials and provider/API registration checks. Browser calling is not enabled yet.</div>
       </div></div></div>
       <div class="tab-pane fade" id="users-tab"><div class="card"><div class="card-body">
         <h6>User & Role Settings</h6><p class="text-muted">Manage Super Admin, Site Admin, Marketing Manager, Team Leader and Marketing Staff accounts and permissions.</p>
@@ -1685,6 +1700,18 @@ Views.settings = async function (root) {
       showToast("Settings saved");
       await loadPublicBranding();
     } catch(e) { showToast(e.detail || "Failed to save settings", "danger"); }
+  });
+
+  qs("#voip-test-btn").addEventListener("click", async () => {
+    const box = qs("#voip-test-result");
+    box.innerHTML = '<div class="alert alert-info small">Testing provider connection…</div>';
+    try {
+      const result = await apiFetch("/voip/test", {method:"POST"});
+      const reg = result.data && result.data.registered !== undefined ? (result.data.registered ? "Provider reports SIP account registered." : "Provider reports SIP account not currently registered.") : "";
+      box.innerHTML = `<div class="alert ${result.ok ? "alert-success" : "alert-danger"} small"><strong>${escapeHtml(result.message || "Test complete")}</strong>${reg ? `<br>${escapeHtml(reg)}` : ""}</div>`;
+    } catch(e) {
+      box.innerHTML = `<div class="alert alert-danger small">${escapeHtml(e.detail || "VOIP provider test failed")}</div>`;
+    }
   });
 
   qs("#smtp-test").addEventListener("click", async () => {
