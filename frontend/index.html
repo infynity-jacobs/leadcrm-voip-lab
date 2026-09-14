@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lead CRM</title>
+<link id="site-favicon" rel="icon" href="">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="css/style.css?v=2.9.0-yeastar-extension-lab" rel="stylesheet">
+</head>
+<body>
+
+<div id="login-screen" class="d-flex align-items-center justify-content-center vh-100 d-none">
+  <div class="card shadow-sm login-card">
+    <div class="card-body p-4">
+      <div class="text-center mb-4" id="login-brand-wrap">
+        <img id="login-logo" class="d-none mb-2" alt="Company logo" style="max-height:72px;max-width:220px;object-fit:contain">
+        <i id="login-default-icon" class="bi bi-graph-up-arrow fs-1 text-primary"></i>
+        <h4 id="login-site-name" class="mt-2 mb-0">Lead CRM</h4>
+        <small id="login-branding" class="text-muted">Marketing Lead Management</small>
+      </div>
+      <form id="login-form">
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <input type="text" class="form-control" id="login-username" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-control" id="login-password" required>
+        </div>
+        <div id="login-error" class="alert alert-danger py-2 d-none"></div>
+        <button type="submit" class="btn btn-primary w-100">Sign In</button>
+        <button type="button" id="forgot-password-btn" class="btn btn-link w-100 mt-2">Forgot password?</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="app-shell" class="d-none">
+  <nav class="navbar navbar-expand-lg px-3 sticky-top crm-header-nav">
+    <a class="navbar-brand fw-semibold" href="#/dashboard"><i class="bi bi-graph-up-arrow me-1"></i>Lead CRM</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav me-auto" id="nav-links"></ul>
+      <span class="navbar-text me-3" id="nav-user"></span>
+      <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
+    </div>
+  </nav>
+  <div class="container-fluid py-4 px-3 px-md-4" id="view-root"></div>
+  <nav id="mobile-bottom-nav" class="mobile-bottom-nav d-md-none" aria-label="Mobile navigation">
+    <a href="#/dashboard" class="mobile-bottom-item" data-mobile-nav="dashboard"><span class="mobile-bottom-icon"><i class="bi bi-house"></i></span><span>Home</span></a>
+    <a href="#/leads" class="mobile-bottom-item" data-mobile-nav="leads"><span class="mobile-bottom-icon"><i class="bi bi-people"></i></span><span>Leads</span></a>
+    <a href="#/leads?new=1" class="mobile-bottom-item mobile-bottom-primary" data-mobile-nav="new"><span class="mobile-bottom-icon"><i class="bi bi-plus-lg"></i></span><span>New Lead</span></a>
+    <a href="#/reports" class="mobile-bottom-item" data-mobile-nav="reports"><span class="mobile-bottom-icon"><i class="bi bi-bar-chart"></i></span><span>Reports</span></a>
+    <a href="#/profile" class="mobile-bottom-item" data-mobile-nav="profile"><span class="mobile-bottom-icon"><i class="bi bi-three-dots"></i></span><span>More</span></a>
+  </nav>
+</div>
+
+<div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/views.js?v=2.9.0-yeastar-extension-lab"></script>
+<script src="js/app.js?v=2.9.0-yeastar-extension-lab"></script>
+</body>
+</html>
