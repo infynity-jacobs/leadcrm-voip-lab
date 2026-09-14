@@ -9,4 +9,4 @@
 6. If API login fails repeatedly, stop testing until the credentials are verified; Yeastar can temporarily block an application IP after repeated failed API logins.
 
 ## Browser calling
-Browser calling is not included in v2.8.4. Do not expose SIP credentials to browser JavaScript. The next phase should use a controlled SIP/WebRTC architecture.
+Browser calling is not included in v2.8.5. Do not expose SIP credentials to browser JavaScript. The next phase should use a controlled SIP/WebRTC architecture.
