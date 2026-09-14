@@ -1,31 +1,33 @@
-# --- Python / backend ---
-backend/venv/
-backend/.venv/
+# Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-.pytest_cache/
+*$py.class
 
-# Local SQLite dev database
-backend/*.db
-backend/*.sqlite3
+# Virtual environments
+.venv/
+venv/
+env/
 
-# Environment / secrets - never commit real credentials.
-# deploy/.env.example is a template and IS tracked; actual .env files are not.
+# Environment / secrets
 .env
-backend/.env
-*.env.local
+.env.*
+!.env.example
 
-# --- Logs ---
+# Runtime uploads
+uploads/
+
+# Logs
 *.log
 
-# --- OS / editor cruft ---
+# OS/editor files
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-*.swp
 
-# --- Node (only relevant if a frontend build step is added later) ---
-node_modules/
-dist/
+# Temporary/build artifacts
+tmp/
+v*_work/
+*.zip
+*.tar
+*.tar.gz
