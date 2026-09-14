@@ -1,4 +1,4 @@
-# Lead CRM — VOIP Lab Build v2.8.4
+# Lead CRM — VOIP Lab Build v2.8.3
 
 > **Separate testing build. Do not use this package to upgrade the production Lead CRM.**
 
@@ -48,7 +48,7 @@ sudo bash deploy/upgrade_ubuntu22.sh
 Then configure the Nginx hostname/IP and HTTPS as appropriate.
 
 ## Scope roadmap
-1. v2.8.4 — Yeastar S-Series API connectivity test.
+1. v2.8.3 — Yeastar S-Series API connectivity test.
 2. Next — Yeastar extension discovery and per-user extension mapping.
 3. Next — SIP/WebRTC browser calling through the chosen architecture.
 4. Next — call events/CDR integration with the CRM Call Log.

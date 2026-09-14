@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+#
+# Safely upgrades an existing Lead CRM installation in /opt/leadcrm-voip-lab.
+# Run this script from the root of the new Lead CRM package:
+#   sudo bash deploy/upgrade_ubuntu22.sh
+#
+# It preserves backend/.env, the PostgreSQL database, uploads, and Nginx
+# customizations while installing the new application code and migrations.
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+  echo "Please run this script as root (e.g. with sudo)." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+INSTALL_DIR="/opt/leadcrm-voip-lab"
+ENV_FILE="${INSTALL_DIR}/backend/.env"
+
+cd /tmp
+
+if [[ ! -d "$INSTALL_DIR/backend" || ! -f "$ENV_FILE" ]]; then
+  echo "ERROR: Existing Lead CRM installation not found at $INSTALL_DIR" >&2
+  echo "Use deploy/install_ubuntu22.sh for a fresh installation." >&2
+  exit 1
+fi
+
+if [[ ! -f "$PROJECT_ROOT/backend/requirements.txt" || ! -d "$PROJECT_ROOT/frontend" || ! -d "$PROJECT_ROOT/deploy/migrations" ]]; then
+  echo "ERROR: Run this script from the root of the complete Lead CRM v2 package." >&2
+  exit 1
+fi
+
+echo "== 1/7: Ensuring Cairo runtime is available for SVG PDF logos =="
+apt-get update -y
+DEBIAN_FRONTEND=noninteractive apt-get install -y libcairo2
+
+echo "== 1/7: Checking required system tools =="
+for cmd in rsync python3; do
+  command -v "$cmd" >/dev/null || { echo "ERROR: $cmd is not installed." >&2; exit 1; }
+done
+
+systemctl stop leadcrm-voip-lab-backend || true
+
+echo "== 2/7: Backing up application configuration =="
+BACKUP_DIR="/var/backups/leadcrm-voip-lab"
+mkdir -p "$BACKUP_DIR"
+cp -a "$ENV_FILE" "$BACKUP_DIR/backend.env.$(date +%Y%m%d%H%M%S)"
+
+# Branding uploads are runtime data and MUST NOT be deleted by rsync --delete.
+# Canonical location is /opt/leadcrm-voip-lab/uploads. If an older installation kept
+# uploads under backend/uploads, migrate them before syncing the code.
+mkdir -p "$INSTALL_DIR/uploads"
+if [[ -d "$INSTALL_DIR/backend/uploads" ]]; then
+  rsync -a "$INSTALL_DIR/backend/uploads/" "$INSTALL_DIR/uploads/"
+fi
+
+# Ensure existing installations have the canonical upload directory configured.
+# Preserve all other .env values exactly as-is.
+if ! grep -q '^UPLOAD_DIR=' "$ENV_FILE"; then
+  printf '\n# Persistent runtime uploads (preserved across upgrades)\nUPLOAD_DIR=%s/uploads\n' "$INSTALL_DIR" >> "$ENV_FILE"
+fi
+
+# Keep .env and runtime uploads out of --delete operations.
+echo "== 3/7: Installing application files =="
+mkdir -p "$INSTALL_DIR/backend" "$INSTALL_DIR/frontend" "$INSTALL_DIR/deploy"
+rsync -a --delete \
+  --exclude 'venv' \
+  --exclude '__pycache__' \
+  --exclude '*.db' \
+  --exclude '.env' \
+  --exclude 'uploads/' \
+  "$PROJECT_ROOT/backend/" "$INSTALL_DIR/backend/"
+rsync -a --delete "$PROJECT_ROOT/frontend/" "$INSTALL_DIR/frontend/"
+rsync -a "$PROJECT_ROOT/deploy/" "$INSTALL_DIR/deploy/"
+
+chown -R leadcrm-voip-lab:leadcrm-voip-lab "$INSTALL_DIR"
+chmod 600 "$ENV_FILE"
+
+if [[ -x "$INSTALL_DIR/backend/venv/bin/pip" ]]; then
+  echo "== 4/7: Updating Python dependencies =="
+  "$INSTALL_DIR/backend/venv/bin/pip" install -r "$INSTALL_DIR/backend/requirements.txt"
+else
+  echo "ERROR: Python virtualenv not found at $INSTALL_DIR/backend/venv" >&2
+  exit 1
+fi
+
+echo "== 5/7: Applying database migrations =="
+bash "$INSTALL_DIR/deploy/migrate.sh"
+
+echo "== 6/7: Installing service and refreshing backend =="
+cp "$INSTALL_DIR/deploy/leadcrm-voip-lab-backend.service" /etc/systemd/system/leadcrm-voip-lab-backend.service
+systemctl daemon-reload
+systemctl enable leadcrm-voip-lab-backend
+systemctl restart leadcrm-voip-lab-backend
+
+sleep 2
+if ! systemctl is-active --quiet leadcrm-voip-lab-backend; then
+  echo "ERROR: Backend failed to start. Recent logs:" >&2
+  journalctl -u leadcrm-voip-lab-backend -n 80 --no-pager >&2
+  exit 1
+fi
+
+echo "== 7/7: Validating Nginx =="
+if [[ -f "$INSTALL_DIR/deploy/nginx_leadcrm.conf" && ! -f /etc/nginx/sites-available/leadcrm-voip-lab ]]; then
+  cp "$INSTALL_DIR/deploy/nginx_leadcrm.conf" /etc/nginx/sites-available/leadcrm-voip-lab
+  ln -sf /etc/nginx/sites-available/leadcrm-voip-lab /etc/nginx/sites-enabled/leadcrm-voip-lab
+fi
+nginx -t
+systemctl reload nginx
+
+echo
+echo "=================================================================="
+echo " Lead CRM v2.6.2 upgrade completed successfully."
+echo
+echo " Application: $INSTALL_DIR"
+echo " Backend:     systemctl status leadcrm-voip-lab-backend"
+echo " Migrations:  $INSTALL_DIR/deploy/migrations"
+echo " Backup:      $BACKUP_DIR"
+echo "=================================================================="

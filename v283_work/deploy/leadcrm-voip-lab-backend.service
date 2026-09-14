@@ -1,0 +1,25 @@
+[Unit]
+Description=Lead CRM VOIP Lab backend (FastAPI/Uvicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=leadcrm-voip-lab
+Group=leadcrm-voip-lab
+WorkingDirectory=/opt/leadcrm-voip-lab/backend
+EnvironmentFile=/opt/leadcrm-voip-lab/backend/.env
+ExecStart=/opt/leadcrm-voip-lab/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8100 --workers 3 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

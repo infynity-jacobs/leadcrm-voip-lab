@@ -1629,7 +1629,7 @@ Views.settings = async function (root) {
         <div id="voip-test-result" class="mt-3"></div>
         <hr>
         <h6>User extensions</h6><p class="text-muted small">Per-user SIP credentials will be added in the next VOIP phase. They will be stored encrypted and mapped to CRM users.</p>
-        <div class="alert alert-warning small mb-0"><strong>Testing scope:</strong> v2.8.4 adds Yeastar S-Series API connectivity and PBX information checks. It does not place calls, change PBX configuration, or enable browser calling.</div>
+        <div class="alert alert-warning small mb-0"><strong>Testing scope:</strong> v2.8.3 adds Yeastar S-Series API connectivity and PBX information checks. It does not place calls, change PBX configuration, or enable browser calling.</div>
       </div></div></div>
       <div class="tab-pane fade" id="users-tab"><div class="card"><div class="card-body">
         <h6>User & Role Settings</h6><p class="text-muted">Manage Super Admin, Site Admin, Marketing Manager, Team Leader and Marketing Staff accounts and permissions.</p>
@@ -1706,9 +1706,6 @@ Views.settings = async function (root) {
     const box = qs("#voip-test-result");
     box.innerHTML = '<div class="alert alert-info small">Testing Yeastar PBX connection…</div>';
     try {
-      // Persist the values currently shown in the VOIP form first. Blank/masked secret fields
-      // are ignored by the backend, so an already-saved password is preserved.
-      await apiFetch("/settings/system", {method:"PUT", body:{values:collect()}});
       const result = await apiFetch("/voip/test", {method:"POST"});
       const info = result.data && result.data.device_info ? result.data.device_info : null;
       const details = info ? `<br><span class="text-muted">PBX information received successfully.</span>` : "";

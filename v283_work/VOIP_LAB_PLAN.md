@@ -2,7 +2,7 @@
 
 The VOIP Lab remains isolated from production. The first concrete PBX integration is now the existing **Yeastar S50** at `10.10.10.16`.
 
-## v2.8.4
+## v2.8.3
 - Yeastar S-Series provider adapter.
 - Admin-only connection test.
 - API 2.0 login using MD5-hashed API password.

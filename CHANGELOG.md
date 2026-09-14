@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.8.4 - Yeastar API test hardening
+
+- Matches the verified S50 API 2.0 HTTPS login request.
+- Adds robust TLS/network/timeout/connection-reset handling instead of generic HTTP 500 errors.
+- Maps Yeastar error 20003 to a clear invalid-credentials message.
+- Tests `deviceinfo/query` after login and performs best-effort API logout.
+- Never returns API tokens or secrets to the browser.
+- Settings test now saves current form values before running, preventing stale protocol/credential tests.
+
+
+## v2.8.4 - Yeastar adapter diagnostics fix
+- Hardened Yeastar HTTPS/network exception handling so protocol, TLS, timeout and connection failures return useful test results instead of HTTP 500.
+- Login request matches the verified S-Series API 2.0 flow: JSON POST, lowercase MD5 API password, API version and event port.
+- Yeastar error 20003 is reported as an API credential rejection with a clear instruction to re-enter the saved CRM API password.
+- Added HTTP status/error type diagnostics without exposing API passwords, hashes or tokens.
+- Added deviceinfo query after login and best-effort logout after the connection test.
+- Kept HTTPS 8088 with TLS verification disabled as the lab default.
+
 ## v2.8.3 - Yeastar S-Series adapter lab
 - Removed the VoIP.ms adapter and VoIP.ms-specific settings/UI.
 - Added Yeastar S-Series API adapter.
