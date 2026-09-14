@@ -1,20 +1,21 @@
 # VOIP Lab Plan
 
-This build is intentionally isolated from production and provider-neutral.
+The VOIP Lab remains isolated from production. The first concrete PBX integration is now the existing **Yeastar S50** at `10.10.10.16`.
 
-## Current build
-- VOIP settings under Settings.
-- Provider/system type selection.
-- PBX/SIP host, port, WebSocket, realm and STUN/TURN fields.
-- Extension mode selection.
-- No vendor adapter.
-- No live calling.
+## v2.8.3
+- Yeastar S-Series provider adapter.
+- Admin-only connection test.
+- API 2.0 login using MD5-hashed API password.
+- PBX information query after login.
+- Encrypted API password storage.
+- No PBX configuration changes.
+- No live calls.
 
-## Later phases
-1. Select the first provider integration based on lab testing.
-2. Add per-user extension/credential storage with encryption.
-3. Add browser softphone and click-to-call.
-4. Feed call events into the existing Call Log.
-5. Add incoming caller identification, call outcomes and follow-up automation.
+## Next phases
+1. Discover and map Yeastar extensions.
+2. Define per-user CRM extension assignments.
+3. Establish browser WebRTC/SIP architecture.
+4. Integrate call events and CDR into the Call Log.
+5. Add click-to-call and incoming caller identification.
 
 The production Lead CRM remains untouched while this lab is evaluated.

@@ -39,6 +39,7 @@ DEFAULTS = {
     "voip_stun_server": "", "voip_turn_server": "", "voip_extension_mode": "per_user",
     "voip_sip_username": "", "voip_sip_password": "", "voip_auth_username": "",
     "voip_did": "", "voip_callerid_name": "", "voip_api_username": "", "voip_api_password": "",
+    "voip_api_protocol": "https", "voip_api_port": "8088", "voip_api_version": "2.0.0", "voip_event_port": "0", "voip_tls_verify": "false",
     "password_reset_expire_minutes": "30",
     "session_timeout_minutes": "480", "default_report_format": "pdf", "report_email_footer": "",
 }

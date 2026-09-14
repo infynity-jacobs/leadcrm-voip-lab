@@ -1,16 +1,15 @@
 # Changelog
 
-## v2.8.2 - VoIP.ms adapter lab
-- Added provider-neutral VOIP adapter interface.
-- Added first provider adapter: VoIP.ms.
-- Added encrypted VoIP.ms SIP password and API password settings.
-- Added SIP username, authentication username, DID/caller-ID, POP/server, and API username settings.
-- Added an admin-only provider test endpoint using the VoIP.ms REST/JSON API.
-- Added provider registration-status check through VoIP.ms `getRegistrationStatus`.
-- Added DNS validation for the configured SIP POP.
-- Added the missing composite uniqueness constraint to `LeadProduct` for fresh installations.
-- Fixed installer schema bootstrap ordering, working directory, and application-user permissions.
-- Browser WebRTC calling is intentionally not enabled yet.
+## v2.8.3 - Yeastar S-Series adapter lab
+- Removed the VoIP.ms adapter and VoIP.ms-specific settings/UI.
+- Added Yeastar S-Series API adapter.
+- Added Yeastar API 2.0 login with MD5 password hashing.
+- Added PBX information query after successful login.
+- Added encrypted Yeastar API password setting.
+- Added configurable Yeastar API protocol, port, version, event port and TLS verification.
+- Added admin-only "Test Yeastar Connection" action.
+- Kept the lab isolated from the production Lead CRM.
+- Browser calling, extension provisioning and call-log integration remain out of scope for this release.
 
-## v2.8.1
-- Provider-neutral VOIP lab foundation.
+## v2.8.2 - VoIP.ms adapter lab
+- Superseded by v2.8.3 Yeastar adapter lab for the current VOIP test direction.

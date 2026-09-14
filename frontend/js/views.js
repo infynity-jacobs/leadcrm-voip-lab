@@ -1591,47 +1591,45 @@ Views.settings = async function (root) {
       </div></div></div>
       <div class="tab-pane fade" id="voip-tab"><div class="card"><div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-3">
-          <div><h6 class="mb-1">VOIP / Browser Calling</h6><p class="text-muted small mb-0">Provider-neutral configuration for the future browser softphone. This test build contains no vendor-specific adapter.</p></div>
-          <span class="badge text-bg-secondary">Configuration only</span>
+          <div><h6 class="mb-1">VOIP / Browser Calling</h6><p class="text-muted small mb-0">Yeastar S-Series integration for the VOIP Lab. Browser calling is not enabled yet.</p></div>
+          <span class="badge text-bg-secondary">Lab integration</span>
         </div>
-        <div class="alert alert-info small">The CRM is intentionally provider-neutral. Select the type of VOIP system you plan to connect later. Yeastar-specific integration is not included in this build.</div>
+        <div class="alert alert-info small">This build replaces the VoIP.ms adapter with a Yeastar S-Series adapter. The CRM connects to the existing Yeastar S50 over its local API; no new PBX is installed on the CRM server.</div>
         <div class="row g-3">
           <div class="col-md-4"><label class="form-label">Enable VOIP</label><select class="form-select" data-setting="voip_enabled"><option value="false" ${current.voip_enabled!=="true"?"selected":""}>Disabled</option><option value="true" ${current.voip_enabled==="true"?"selected":""}>Enabled</option></select></div>
           <div class="col-md-8"><label class="form-label">VOIP Provider / System Type</label><select class="form-select" data-setting="voip_provider">
             <option value="" ${!current.voip_provider?"selected":""}>Select later</option>
+            <option value="yeastar_s_series" ${current.voip_provider==="yeastar_s_series"?"selected":""}>Yeastar S-Series</option>
             <option value="generic_sip_webrtc" ${current.voip_provider==="generic_sip_webrtc"?"selected":""}>Generic SIP / WebRTC</option>
             <option value="asterisk_freepbx" ${current.voip_provider==="asterisk_freepbx"?"selected":""}>Asterisk / FreePBX</option>
-            <option value="voipms" ${current.voip_provider==="voipms"?"selected":""}>VoIP.ms</option>
             <option value="sip_provider" ${current.voip_provider==="sip_provider"?"selected":""}>SIP Trunk / VOIP Provider</option>
-            <option value="pbx_api" ${current.voip_provider==="pbx_api"?"selected":""}>PBX with API / WebSocket</option>
+            <option value="pbx_api" ${current.voip_provider==="pbx_api"?"selected":""}>Other PBX with API / WebSocket</option>
             <option value="other" ${current.voip_provider==="other"?"selected":""}>Other</option>
           </select></div>
-          <div class="col-md-8"><label class="form-label">Server / Host</label><input class="form-control" data-setting="voip_server" value="${escapeHtml(current.voip_server || "")}" placeholder="pbx.example.com"></div>
+          <div class="col-md-8"><label class="form-label">Yeastar PBX Host / IP</label><input class="form-control" data-setting="voip_server" value="${escapeHtml(current.voip_server || "")}" placeholder="10.10.10.16"></div>
           <div class="col-md-4"><label class="form-label">SIP Port</label><input type="number" class="form-control" data-setting="voip_port" value="${escapeHtml(current.voip_port || "5060")}"></div>
           <div class="col-md-4"><label class="form-label">Browser Transport</label><select class="form-select" data-setting="voip_transport"><option value="wss" ${current.voip_transport==="wss"?"selected":""}>WebSocket Secure (WSS)</option><option value="ws" ${current.voip_transport==="ws"?"selected":""}>WebSocket (WS)</option></select></div>
           <div class="col-md-8"><label class="form-label">WebSocket URL</label><input class="form-control" data-setting="voip_websocket_url" value="${escapeHtml(current.voip_websocket_url || "")}" placeholder="wss://pbx.example.com/ws"></div>
           <div class="col-md-6"><label class="form-label">Domain / Realm</label><input class="form-control" data-setting="voip_realm" value="${escapeHtml(current.voip_realm || "")}"></div>
           <div class="col-md-6"><label class="form-label">Extension Mode</label><select class="form-select" data-setting="voip_extension_mode"><option value="per_user" ${current.voip_extension_mode!=="shared"?"selected":""}>One extension per user</option><option value="shared" ${current.voip_extension_mode==="shared"?"selected":""}>Shared extension</option></select></div>
-          <div class="col-md-6"><label class="form-label">STUN Server</label><input class="form-control" data-setting="voip_stun_server" value="${escapeHtml(current.voip_stun_server || "")}" placeholder="stun:stun.example.com:3478"></div>
-          <div class="col-md-6"><label class="form-label">TURN Server</label><input class="form-control" data-setting="voip_turn_server" value="${escapeHtml(current.voip_turn_server || "")}" placeholder="turn:turn.example.com:3478"></div>
         </div>
         <hr>
-        <h6>VoIP.ms Adapter</h6>
-        <p class="text-muted small">VoIP.ms SIP and API credentials are stored encrypted. The adapter can validate API access and check the provider's registration status for the configured SIP account.</p>
+        <h6>Yeastar S-Series API</h6>
+        <p class="text-muted small">Enable API access on the Yeastar PBX and create API credentials there. The API password is stored encrypted and is sent as an MD5 hash when requesting the API token.</p>
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">SIP Username / Sub-account</label><input class="form-control" data-setting="voip_sip_username" value="${escapeHtml(current.voip_sip_username || "")}" placeholder="123456_staff"></div>
-          <div class="col-md-6"><label class="form-label">SIP Password</label><input type="password" class="form-control" data-setting="voip_sip_password" placeholder="${current.voip_sip_password==="********"?"Saved — leave blank to keep it":"Enter SIP password"}"></div>
-          <div class="col-md-6"><label class="form-label">Authentication Username</label><input class="form-control" data-setting="voip_auth_username" value="${escapeHtml(current.voip_auth_username || "")}" placeholder="Usually same as SIP username"></div>
-          <div class="col-md-6"><label class="form-label">DID / Caller ID Number</label><input class="form-control" data-setting="voip_did" value="${escapeHtml(current.voip_did || "")}" placeholder="Your VoIP.ms DID"></div>
-          <div class="col-md-6"><label class="form-label">Caller ID Name</label><input class="form-control" data-setting="voip_callerid_name" value="${escapeHtml(current.voip_callerid_name || "")}" placeholder="COMPANY NAME"></div>
-          <div class="col-md-6"><label class="form-label">API Username (account email)</label><input type="email" class="form-control" data-setting="voip_api_username" value="${escapeHtml(current.voip_api_username || "")}" placeholder="name@example.com"></div>
-          <div class="col-md-6"><label class="form-label">API Password</label><input type="password" class="form-control" data-setting="voip_api_password" placeholder="${current.voip_api_password==="********"?"Saved — leave blank to keep it":"Dedicated VoIP.ms API password"}"></div>
-          <div class="col-md-6 d-flex align-items-end"><button type="button" class="btn btn-outline-primary" id="voip-test-btn">Test VoIP.ms Connection</button></div>
+          <div class="col-md-6"><label class="form-label">API Username</label><input class="form-control" data-setting="voip_api_username" value="${escapeHtml(current.voip_api_username || "")}" placeholder="Yeastar API username"></div>
+          <div class="col-md-6"><label class="form-label">API Password</label><input type="password" class="form-control" data-setting="voip_api_password" placeholder="${current.voip_api_password==="********"?"Saved — leave blank to keep it":"Yeastar API password"}"></div>
+          <div class="col-md-4"><label class="form-label">API Protocol</label><select class="form-select" data-setting="voip_api_protocol"><option value="https" ${current.voip_api_protocol!=="http"?"selected":""}>HTTPS</option><option value="http" ${current.voip_api_protocol==="http"?"selected":""}>HTTP</option></select></div>
+          <div class="col-md-4"><label class="form-label">API Port</label><input type="number" class="form-control" data-setting="voip_api_port" value="${escapeHtml(current.voip_api_port || "8088")}"></div>
+          <div class="col-md-4"><label class="form-label">API Version</label><input class="form-control" data-setting="voip_api_version" value="${escapeHtml(current.voip_api_version || "2.0.0")}" placeholder="2.0.0"></div>
+          <div class="col-md-4"><label class="form-label">Event Port</label><input type="number" class="form-control" data-setting="voip_event_port" value="${escapeHtml(current.voip_event_port || "0")}" placeholder="0"></div>
+          <div class="col-md-8 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="voip-tls-verify" ${current.voip_tls_verify==="true"?"checked":""}><label class="form-check-label" for="voip-tls-verify">Verify Yeastar TLS certificate</label></div></div>
+          <div class="col-12 d-flex gap-2"><button type="button" class="btn btn-outline-primary" id="voip-test-btn">Test Yeastar Connection</button></div>
         </div>
         <div id="voip-test-result" class="mt-3"></div>
         <hr>
         <h6>User extensions</h6><p class="text-muted small">Per-user SIP credentials will be added in the next VOIP phase. They will be stored encrypted and mapped to CRM users.</p>
-        <div class="alert alert-warning small mb-0"><strong>Testing scope:</strong> v2.8.2 adds the provider adapter, secure credentials and provider/API registration checks. Browser calling is not enabled yet.</div>
+        <div class="alert alert-warning small mb-0"><strong>Testing scope:</strong> v2.8.3 adds Yeastar S-Series API connectivity and PBX information checks. It does not place calls, change PBX configuration, or enable browser calling.</div>
       </div></div></div>
       <div class="tab-pane fade" id="users-tab"><div class="card"><div class="card-body">
         <h6>User & Role Settings</h6><p class="text-muted">Manage Super Admin, Site Admin, Marketing Manager, Team Leader and Marketing Staff accounts and permissions.</p>
@@ -1688,6 +1686,8 @@ Views.settings = async function (root) {
   const collect = () => {
     const values = {};
     qsa("[data-setting]", root).forEach(el => values[el.dataset.setting] = el.value);
+    const tls = qs("#voip-tls-verify");
+    if (tls) values.voip_tls_verify = tls.checked ? "true" : "false";
     return values;
   };
   qs("#settings-save").addEventListener("click", async () => {
@@ -1704,13 +1704,14 @@ Views.settings = async function (root) {
 
   qs("#voip-test-btn").addEventListener("click", async () => {
     const box = qs("#voip-test-result");
-    box.innerHTML = '<div class="alert alert-info small">Testing provider connection…</div>';
+    box.innerHTML = '<div class="alert alert-info small">Testing Yeastar PBX connection…</div>';
     try {
       const result = await apiFetch("/voip/test", {method:"POST"});
-      const reg = result.data && result.data.registered !== undefined ? (result.data.registered ? "Provider reports SIP account registered." : "Provider reports SIP account not currently registered.") : "";
-      box.innerHTML = `<div class="alert ${result.ok ? "alert-success" : "alert-danger"} small"><strong>${escapeHtml(result.message || "Test complete")}</strong>${reg ? `<br>${escapeHtml(reg)}` : ""}</div>`;
+      const info = result.data && result.data.device_info ? result.data.device_info : null;
+      const details = info ? `<br><span class="text-muted">PBX information received successfully.</span>` : "";
+      box.innerHTML = `<div class="alert ${result.ok ? "alert-success" : "alert-danger"} small"><strong>${escapeHtml(result.message || "Test complete")}</strong>${details}</div>`;
     } catch(e) {
-      box.innerHTML = `<div class="alert alert-danger small">${escapeHtml(e.detail || "VOIP provider test failed")}</div>`;
+      box.innerHTML = `<div class="alert alert-danger small">${escapeHtml(e.detail || "Yeastar provider test failed")}</div>`;
     }
   });
 
