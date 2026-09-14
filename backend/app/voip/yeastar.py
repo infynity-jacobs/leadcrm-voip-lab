@@ -18,9 +18,15 @@ class YeastarAdapter(VoIPProviderAdapter):
     }
 
     def _ssl_context(self, verify: bool) -> Optional[ssl.SSLContext]:
+        # Yeastar S-Series lab PBX supports TLS 1.2 but may reject TLS 1.3
+        # negotiation. Restrict only this adapter's HTTPS connection to TLS 1.2.
         if verify:
-            return None
-        return ssl._create_unverified_context()
+            context = ssl.create_default_context()
+        else:
+            context = ssl._create_unverified_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.maximum_version = ssl.TLSVersion.TLSv1_2
+        return context
 
     def _request_json(self, url: str, payload: Optional[Dict[str, Any]], verify_tls: bool) -> Dict[str, Any]:
         data = json.dumps(payload).encode("utf-8") if payload is not None else b""
@@ -30,7 +36,7 @@ class YeastarAdapter(VoIPProviderAdapter):
             headers={
                 "Content-Type": "application/json; charset=utf-8",
                 "Accept": "application/json",
-                "User-Agent": "LeadCRM-VOIP-Lab/2.8.4",
+                "User-Agent": "LeadCRM-VOIP-Lab/2.8.5",
             },
             method="POST",
         )
