@@ -1,5 +1,5 @@
 from typing import Any, Dict, Optional
-from urllib.request import Request, urlopen
+from http.client import HTTPResponse
 from urllib.error import HTTPError, URLError
 import hashlib
 import json
@@ -17,56 +17,90 @@ class YeastarAdapter(VoIPProviderAdapter):
         "20003": "Invalid API username or password. Re-enter the Yeastar API credentials, save them, and retry.",
     }
 
-    def _ssl_context(self, verify: bool) -> Optional[ssl.SSLContext]:
-        # Yeastar S-Series lab PBX supports TLS 1.2 but may reject TLS 1.3
-        # negotiation. Restrict only this adapter's HTTPS connection to TLS 1.2.
+    def _ssl_context(self, verify: bool) -> ssl.SSLContext:
+        # The Yeastar S-Series lab PBX accepts TLS 1.2 with
+        # AES256-GCM-SHA384, but rejects the default OpenSSL 3 ClientHello.
+        # Keep this compatibility setting scoped to the Yeastar adapter.
         if verify:
             context = ssl.create_default_context()
         else:
             context = ssl._create_unverified_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.maximum_version = ssl.TLSVersion.TLSv1_2
+        context.set_ciphers("AES256-GCM-SHA384")
         return context
 
     def _request_json(self, url: str, payload: Optional[Dict[str, Any]], verify_tls: bool) -> Dict[str, Any]:
-        data = json.dumps(payload).encode("utf-8") if payload is not None else b""
-        req = Request(
-            url,
-            data=data,
-            headers={
-                "Content-Type": "application/json; charset=utf-8",
-                "Accept": "application/json",
-                "User-Agent": "LeadCRM-VOIP-Lab/2.8.5",
-            },
-            method="POST",
-        )
-        kwargs: Dict[str, Any] = {"timeout": 10}
-        if url.lower().startswith("https://"):
-            kwargs["context"] = self._ssl_context(verify_tls)
+        data = json.dumps(payload).encode("utf-8") if payload is not None else b"{}"
+        parsed_url = url.split("://", 1)
+        if len(parsed_url) != 2:
+            return {"status": "Failed", "error_type": "url", "error": "Invalid Yeastar API URL."}
+        scheme, remainder = parsed_url
+        authority, _, path = remainder.partition("/")
+        host, sep, port_text = authority.rpartition(":")
+        if not sep:
+            host, port_text = authority, "443" if scheme.lower() == "https" else "80"
         try:
-            with urlopen(req, **kwargs) as response:
-                raw = response.read().decode("utf-8", errors="replace")
-        except HTTPError as exc:
-            try:
-                raw = exc.read().decode("utf-8", errors="replace")
-                parsed = json.loads(raw) if raw else {}
-            except Exception:
-                parsed = {}
-            parsed.setdefault("status", "Failed")
-            parsed.setdefault("error", f"Yeastar API returned HTTP {exc.code}.")
-            parsed["http_status"] = exc.code
-            return parsed
+            port = int(port_text)
+        except ValueError:
+            return {"status": "Failed", "error_type": "url", "error": "Invalid Yeastar API port."}
+        request_path = "/" + path
+        if scheme.lower() not in {"http", "https"}:
+            return {"status": "Failed", "error_type": "url", "error": "Unsupported Yeastar API protocol."}
+
+        raw_sock = None
+        sock = None
+        try:
+            raw_sock = socket.create_connection((host, port), timeout=10)
+            if scheme.lower() == "https":
+                # Deliberately omit server_hostname/SNI. This matches the
+                # known-good Python TLS test against the older Yeastar Boa server.
+                context = self._ssl_context(verify_tls)
+                sock = context.wrap_socket(raw_sock, server_hostname=None)
+            else:
+                sock = raw_sock
+
+            request = (
+                f"POST {request_path} HTTP/1.1\r\n"
+                f"Host: {host}:{port}\r\n"
+                "Content-Type: application/json; charset=utf-8\r\n"
+                "Accept: application/json\r\n"
+                "User-Agent: LeadCRM-VOIP-Lab/2.8.6\r\n"
+                f"Content-Length: {len(data)}\r\n"
+                "Connection: close\r\n\r\n"
+            ).encode("ascii") + data
+            sock.sendall(request)
+            response = HTTPResponse(sock)
+            response.begin()
+            raw = response.read().decode("utf-8", errors="replace")
+            if response.status >= 400:
+                try:
+                    result = json.loads(raw) if raw else {}
+                except json.JSONDecodeError:
+                    result = {}
+                result.setdefault("status", "Failed")
+                result.setdefault("error", f"Yeastar API returned HTTP {response.status}.")
+                result["http_status"] = response.status
+                return result
         except ssl.SSLError as exc:
             return {"status": "Failed", "error_type": "tls", "error": f"TLS error: {exc}"}
         except (socket.timeout, TimeoutError):
             return {"status": "Failed", "error_type": "timeout", "error": "Yeastar API connection timed out."}
         except (ConnectionResetError, ConnectionRefusedError, BrokenPipeError) as exc:
             return {"status": "Failed", "error_type": "connection", "error": f"PBX connection failed: {exc}"}
-        except URLError as exc:
+        except (URLError, OSError) as exc:
             reason = getattr(exc, "reason", exc)
-            return {"status": "Failed", "error_type": "network", "error": f"Network error: {reason}"}
-        except OSError as exc:
-            return {"status": "Failed", "error_type": "network", "error": f"Network/connection error: {exc}"}
+            return {"status": "Failed", "error_type": "network", "error": f"Network/connection error: {reason}"}
+        except Exception as exc:
+            return {"status": "Failed", "error_type": "request", "error": f"Yeastar API request failed: {exc}"}
+        finally:
+            try:
+                if sock is not None:
+                    sock.close()
+                elif raw_sock is not None:
+                    raw_sock.close()
+            except Exception:
+                pass
 
         try:
             return json.loads(raw)
