@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import SystemSetting, User, VoIPExtensionMapping
-from app.deps import require_roles, ADMINS, log_action
+from app.models import SystemSetting, User, Lead, VoIPExtensionMapping
+from app.deps import require_roles, ADMINS, ALL_STAFF, log_action
 from app.utils.security import decrypt_secret
 from app.voip.yeastar import ADAPTER as YEASTAR_ADAPTER
 from pydantic import BaseModel
@@ -40,6 +40,70 @@ def test_voip(request: Request, current_user: User = Depends(require_roles(*ADMI
     result = YEASTAR_ADAPTER.test(config)
     log_action(db, current_user, "test_voip_provider", "voip", None, {"provider": provider, "ok": result.ok}, request)
     return {"ok": result.ok, "provider": result.provider, "message": result.message, "data": result.data}
+
+
+
+
+class ClickToCallIn(BaseModel):
+    lead_id: int
+    autoanswer: str = "no"
+
+
+def _check_lead_visibility(user: User, lead: Lead) -> None:
+    from app.models import RoleEnum
+    if user.role in (RoleEnum.super_admin, RoleEnum.site_admin, RoleEnum.marketing_manager):
+        return
+    if user.role == RoleEnum.team_leader and lead.team_id == user.team_id:
+        return
+    if user.role == RoleEnum.marketing_staff and lead.assigned_to_id == user.id:
+        return
+    raise HTTPException(403, "You do not have access to this lead")
+
+
+@router.post("/call")
+def click_to_call(
+    payload: ClickToCallIn,
+    request: Request,
+    current_user: User = Depends(require_roles(*ALL_STAFF)),
+    db: Session = Depends(get_db),
+):
+    provider = _value(db, "voip_provider").strip().lower()
+    enabled = _value(db, "voip_enabled", "false").strip().lower() in {"true", "1", "yes", "on"}
+    if not enabled:
+        raise HTTPException(409, "VOIP is disabled. Enable VOIP in Settings first.")
+    if provider != "yeastar_s_series":
+        raise HTTPException(409, "Yeastar S-Series is not the active VOIP provider.")
+
+    lead = db.query(Lead).filter(Lead.id == payload.lead_id).first()
+    if not lead:
+        raise HTTPException(404, "Lead not found.")
+    _check_lead_visibility(current_user, lead)
+    if not lead.phone:
+        raise HTTPException(400, "This lead does not have a phone number.")
+
+    mapping = db.query(VoIPExtensionMapping).filter(
+        VoIPExtensionMapping.provider == provider,
+        VoIPExtensionMapping.user_id == current_user.id,
+        VoIPExtensionMapping.is_active.is_(True),
+    ).first()
+    if not mapping:
+        raise HTTPException(409, "Your CRM user is not mapped to a Yeastar extension. Ask an administrator to map your extension in Settings → VOIP.")
+
+    destination = "".join(ch for ch in str(lead.phone) if ch.isdigit())
+    if not destination:
+        raise HTTPException(400, "The lead phone number does not contain a dialable number.")
+    if len(destination) > 30:
+        raise HTTPException(400, "The lead phone number is too long.")
+
+    result = YEASTAR_ADAPTER.make_call(_yeastar_config(db), mapping.extension_number, destination, payload.autoanswer)
+    log_action(
+        db, current_user, "voip_click_to_call", "lead", lead.id,
+        {"provider": provider, "extension": mapping.extension_number, "ok": result.ok, "callid": result.data.get("callid") if result.ok else None},
+        request,
+    )
+    if not result.ok:
+        raise HTTPException(502, result.message)
+    return {"ok": True, "provider": result.provider, "message": result.message, "callid": result.data.get("callid"), "extension": mapping.extension_number}
 
 
 class ExtensionMappingIn(BaseModel):
