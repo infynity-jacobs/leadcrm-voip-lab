@@ -1,3 +1,22 @@
+## v2.10.2 - Click-to-Call & Lead Contact Hotfix
+
+- Fixed Yeastar extension mapping so selecting `Unassigned` and saving actually removes the mapping.
+- Added server-side handling for an unassigned mapping request to prevent stale caller-extension assignments.
+- Fixed lead editing so an existing phone number can be explicitly cleared and saved as empty.
+- Preserved the existing omission behavior for other optional blank lead fields.
+
+## v2.10.0 - Yeastar Click-to-Call Lab
+
+- Added provider-neutral `make_call()` adapter operation with a Yeastar S-Series implementation using API 2.0 `call/dial`.
+- Added authenticated `POST /api/voip/call` endpoint for CRM users with an active Yeastar extension mapping.
+- Server resolves the lead phone number and mapped caller extension; the browser cannot select either value.
+- Added PBX Call action to Lead Details, including mobile sticky actions.
+- Added confirmation before initiating a PBX call.
+- Captures the Yeastar `callid` in the CRM audit log without exposing the API token.
+- Added validation for VOIP enabled state, lead visibility, mapped extension, and dialable phone digits.
+- No database migration required for v2.10.0.
+- Browser WebRTC/SIP media, inbound call events, CDR synchronization, and recording remain out of scope.
+
 # Changelog
 
 ## v2.8.5 - Yeastar API test hardening

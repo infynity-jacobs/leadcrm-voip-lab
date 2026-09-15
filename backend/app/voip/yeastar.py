@@ -174,6 +174,75 @@ class YeastarAdapter(VoIPProviderAdapter):
             except Exception:
                 pass
 
+    def make_call(self, config: Dict[str, Any], caller: str, callee: str, autoanswer: str = "no") -> VoIPAdapterResult:
+        """Initiate a PBX-controlled call using the S-Series call/dial API."""
+        host = (config.get("server") or "").strip()
+        api_user = (config.get("api_username") or "").strip()
+        api_password = config.get("api_password") or ""
+        api_protocol = (config.get("api_protocol") or "https").strip().lower()
+        api_port = str(config.get("api_port") or "8088").strip()
+        api_version = (config.get("api_version") or "2.0.0").strip()
+        event_port = str(config.get("event_port") or "0").strip()
+        verify_tls = str(config.get("verify_tls") or "false").lower() in {"true", "1", "yes", "on"}
+
+        caller = str(caller or "").strip()
+        callee = str(callee or "").strip()
+        autoanswer = str(autoanswer or "no").strip().lower()
+        if not host or not api_user or not api_password:
+            return VoIPAdapterResult(False, self.provider_key, "Yeastar API credentials are not configured.", {})
+        if not caller.isdigit() or not (1 <= len(caller) <= 20):
+            return VoIPAdapterResult(False, self.provider_key, "Invalid Yeastar caller extension.", {})
+        if not callee.isdigit() or not (1 <= len(callee) <= 30):
+            return VoIPAdapterResult(False, self.provider_key, "Invalid destination phone number.", {})
+        if autoanswer not in {"yes", "no"}:
+            autoanswer = "no"
+        if api_protocol not in {"http", "https"}:
+            return VoIPAdapterResult(False, self.provider_key, "Yeastar API protocol must be HTTP or HTTPS.", {})
+        try:
+            port_num = int(api_port)
+            if not (1 <= port_num <= 65535):
+                raise ValueError
+        except ValueError:
+            return VoIPAdapterResult(False, self.provider_key, "Yeastar API port is invalid.", {})
+
+        base = f"{api_protocol}://{host}:{api_port}/api/v{api_version}"
+        md5_password = hashlib.md5(api_password.encode("utf-8")).hexdigest()
+        login = self._request_json(f"{base}/login", {
+            "username": api_user,
+            "password": md5_password,
+            "version": api_version,
+            "port": event_port,
+        }, verify_tls)
+        if str(login.get("status", "")).lower() != "success" or not login.get("token"):
+            return VoIPAdapterResult(False, self.provider_key, self._failure_message(login, "Yeastar API login failed"), {"yeastar_errno": login.get("errno")})
+
+        token = str(login["token"])
+        try:
+            response = self._request_json(
+                f"{base}/call/dial?token={token}",
+                {"caller": caller, "callee": callee, "autoanswer": autoanswer},
+                verify_tls,
+            )
+            if str(response.get("status", "")).lower() != "success":
+                return VoIPAdapterResult(
+                    False, self.provider_key,
+                    self._failure_message(response, "Yeastar call initiation failed"),
+                    {"yeastar_errno": response.get("errno")},
+                )
+            callid = str(response.get("callid") or "").strip()
+            if not callid:
+                return VoIPAdapterResult(False, self.provider_key, "Yeastar accepted the call request but did not return a call ID.", {})
+            return VoIPAdapterResult(
+                True, self.provider_key,
+                f"Call initiated from extension {caller} to {callee}.",
+                {"callid": callid, "caller": caller, "callee": callee},
+            )
+        finally:
+            try:
+                self._request_json(f"{base}/logout?token={token}", None, verify_tls)
+            except Exception:
+                pass
+
     def test(self, config: Dict[str, Any]) -> VoIPAdapterResult:
         host = (config.get("server") or "").strip()
         api_user = (config.get("api_username") or "").strip()

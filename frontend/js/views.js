@@ -441,13 +441,13 @@ Views.leadDetail = async function (root, leadId) {
         <h4 class="mb-0 mt-1">${escapeHtml(lead.first_name)} ${escapeHtml(lead.last_name || "")} ${statusBadge(lead.status)}</h4>
       </div>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm" id="edit-lead-btn"><i class="bi bi-pencil"></i> Edit</button>
+        ${lead.phone ? '<button class="btn btn-outline-success btn-sm" id="voip-call-btn"><i class="bi bi-telephone-outbound"></i> PBX Call</button>' : ''}<button class="btn btn-outline-secondary btn-sm" id="edit-lead-btn"><i class="bi bi-pencil"></i> Edit</button>
         ${user.role === "super_admin" ? '<button class="btn btn-outline-danger btn-sm" id="delete-lead-btn"><i class="bi bi-trash"></i> Delete</button>' : ""}
       </div>
     </div>
     <div class="mobile-sticky-actions d-md-none">
       <a class="btn btn-outline-secondary" href="#/leads"><i class="bi bi-arrow-left"></i><span>Back</span></a>
-      ${lead.phone ? `<a class="btn btn-outline-primary" href="tel:${escapeHtml(lead.phone)}"><i class="bi bi-telephone"></i><span>Call</span></a>` : ""}
+      ${lead.phone ? `<button class="btn btn-outline-success" id="mobile-voip-call-btn"><i class="bi bi-telephone-outbound"></i><span>PBX Call</span></button>` : ""}${lead.phone ? `<a class="btn btn-outline-primary" href="tel:${escapeHtml(lead.phone)}"><i class="bi bi-telephone"></i><span>Phone</span></a>` : ""}
       <button class="btn btn-primary" id="mobile-edit-lead-btn"><i class="bi bi-pencil"></i><span>Edit</span></button>
       ${lead.status !== "converted" ? `<button class="btn btn-success" id="mobile-followup-btn"><i class="bi bi-calendar-plus"></i><span>Follow-up</span></button>` : ""}
     </div>
@@ -693,6 +693,19 @@ Views.leadDetail = async function (root, leadId) {
     } catch (e) { showToast(e.detail || "Failed to assign lead", "danger"); }
   });
 
+  const startVoipCall = async () => {
+    if (!lead.phone) return showToast("This lead does not have a phone number", "warning");
+    if (!confirm(`Start a PBX call to ${lead.phone}? Your mapped Yeastar extension will ring first.`)) return;
+    try {
+      const result = await apiFetch("/voip/call", { method: "POST", body: { lead_id: leadId, autoanswer: "no" } });
+      showToast(result.message || "PBX call initiated", "success");
+    } catch (e) {
+      showToast(e.detail || "Unable to initiate PBX call", "danger");
+    }
+  };
+  qs("#voip-call-btn")?.addEventListener("click", startVoipCall);
+  qs("#mobile-voip-call-btn")?.addEventListener("click", startVoipCall);
+
   qs("#edit-lead-btn").addEventListener("click", async () => {
     const teams = await apiFetch("/teams");
     Views._leadFormModal(lead, teams, staffList);
@@ -819,7 +832,15 @@ Views._leadFormModal = async function (lead, teams, staffList) {
     const form = qs("#lead-form", el);
     const fd = new FormData(form);
     const payload = Object.fromEntries(fd.entries());
-    Object.keys(payload).forEach(k => { if (payload[k] === "") delete payload[k]; });
+    // For edits, an explicitly cleared phone must be sent as null so the
+    // backend can distinguish "clear this value" from "leave unchanged".
+    // Other optional blank fields retain the existing omission behavior.
+    if (isEdit && Object.prototype.hasOwnProperty.call(payload, "phone") && payload.phone === "") {
+      payload.phone = null;
+    }
+    Object.keys(payload).forEach(k => {
+      if (payload[k] === "" && k !== "phone") delete payload[k];
+    });
     if (payload.team_id) payload.team_id = parseInt(payload.team_id);
     if (payload.assigned_to_id) payload.assigned_to_id = parseInt(payload.assigned_to_id);
     try {
@@ -1753,10 +1774,19 @@ Views.settings = async function (root) {
     if (!row) return;
     if (event.target.closest(".voip-save-extension")) {
       const userId = Number(qs(".voip-extension-user", row).value || 0);
-      if (!userId) { showToast("Select a CRM user first", "warning"); return; }
       try {
-        await apiFetch("/voip/extensions/mapping", {method:"PUT", body:{user_id:userId, extension_number:row.dataset.extension, is_active:true}});
-        showToast(`Extension ${row.dataset.extension} mapped successfully`);
+        if (!userId) {
+          const mappingId = Number(row.dataset.mappingId || 0);
+          if (!mappingId) {
+            showToast(`Extension ${row.dataset.extension} is already unassigned`, "info");
+            return;
+          }
+          await apiFetch(`/voip/extensions/mapping/${mappingId}`, {method:"DELETE"});
+          showToast(`Extension ${row.dataset.extension} unassigned`);
+        } else {
+          await apiFetch("/voip/extensions/mapping", {method:"PUT", body:{user_id:userId, extension_number:row.dataset.extension, is_active:true}});
+          showToast(`Extension ${row.dataset.extension} mapped successfully`);
+        }
         await loadYeastarExtensions();
       } catch (e) { showToast(e.detail || "Failed to save extension mapping", "danger"); }
     }

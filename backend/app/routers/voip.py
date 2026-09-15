@@ -107,7 +107,7 @@ def click_to_call(
 
 
 class ExtensionMappingIn(BaseModel):
-    user_id: int
+    user_id: int | None = None
     extension_number: str
     is_active: bool = True
 
@@ -147,6 +147,24 @@ def save_yeastar_extension_mapping(payload: ExtensionMappingIn, request: Request
         raise HTTPException(400, "Invalid extension number.")
     if not extension_number.isdigit():
         raise HTTPException(400, "Extension number must contain digits only.")
+
+    # Selecting "Unassigned" in the UI is an explicit request to remove
+    # the mapping. Keep this server-side behavior too so an empty user_id
+    # can never leave a stale extension assignment behind.
+    if payload.user_id is None:
+        row = db.query(VoIPExtensionMapping).filter(
+            VoIPExtensionMapping.provider == provider,
+            VoIPExtensionMapping.extension_number == extension_number,
+        ).first()
+        if not row:
+            return {"ok": True, "unassigned": True, "extension_number": extension_number}
+        details = {"provider": row.provider, "user_id": row.user_id, "extension_number": row.extension_number}
+        mapping_id = row.id
+        db.delete(row)
+        db.commit()
+        log_action(db, current_user, "unmap_voip_extension", "voip_extension_mapping", mapping_id, details, request)
+        return {"ok": True, "unassigned": True, "extension_number": extension_number}
+
     user = db.query(User).filter(User.id == payload.user_id, User.is_active.is_(True)).first()
     if not user:
         raise HTTPException(404, "Active CRM user not found.")
